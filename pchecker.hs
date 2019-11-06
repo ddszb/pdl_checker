@@ -6,7 +6,7 @@ type Aresta = (Vertice, Vertice, Weight)
 data Operator = SEQ | ND | FR 
 		deriving (Eq, Show)
 
-data Program p = PP Operator Operand (Program p) | P1 Operator Operand Operand
+data Program p = POP Operator Operand (Program p) | POO Operator Operand Operand | PPP Operator (Program p) (Program p) | PPO Operator (Program p) Operand
 			deriving (Eq, Show)
 
 type Graph = [Aresta]
@@ -24,32 +24,44 @@ drawOp ND = "U"
 drawOp FR = "*"
 
 drawProg :: Program p -> String
-drawProg (P1 op a b)= "(" ++ (drawOp op) ++ "(" ++ a ++ "," ++ b  ++ "))" 
-drawProg (PP op a p) = "(" ++ (drawOp op) ++ "(" ++ a ++ "," ++ (drawProg p) ++ "))" 
+drawProg (POO op a b)= "(" ++ (drawOp op) ++ "(" ++ a ++ "," ++ b  ++ "))" 
+drawProg (POP op a p) = "(" ++ (drawOp op) ++ "(" ++ a ++ "," ++ (drawProg p) ++ "))" 
 
 
 
 graph2 = [("1","2", "a"), ("1","3", "b"), ("1","4", "b"), ("1","5", "d"),
 				("2","6", "a"), ("2","7", "a"), ("4","8", "d"), ("5","9", "c")]
 
-prog1 = P1 SEQ "b" "c" -- (a;b)
-prog2 = PP SEQ "a" (PP SEQ "a" (PP ND "b" (P1 FR "d" "a"))) -- a;(a;(b U (d;a)*))
-seqprog1 = PP SEQ "b" (PP SEQ "b" (PP SEQ "c" (P1 SEQ "d" "e"))) -- (b;b;c;d;e)
+prog1 = POO SEQ "b" "c" -- (a;b)
+prog2 = POP SEQ "a" (POP SEQ "a" (POP ND "b" (POO FR "d" "a"))) -- a;(a;(b U (d;a)*))
+seqprog1 = POP SEQ "b" (POP SEQ "b" (POP SEQ "c" (POO SEQ "d" "e"))) -- (b;b;c;d;e)
 
-seq_A = PP SEQ "b" (PP SEQ "b" (PP SEQ "c" (P1 SEQ "d" "e"))) -- (b;b;c;d;e)
+seq_A = POP SEQ "b" (POP SEQ "b" (POP SEQ "c" (POO SEQ "d" "e"))) -- (b;b;c;d;e)
 graph_A = [("1","2","b"),("2","3","b"),("3","4","c"),("4","5","e")]
 
 verify :: Program p -> [Char] -> Graph -> Bool
-verify (PP op f p) index ((a,b,c):gr) = 
+verify (POP op f p) index ((a,b,c):gr) = 
 	if op == SEQ
 		then do 
 			let newEdge = (index, b, f)
 			if newEdge == (a, b, c)
 				then verify p b gr 
 			else False
-	else  False
+	else  
+		if op == ND 
+			then do
+				let leftEdge = (index, b, f)
+				let (op1, r, s = p --< como ?
+				let rightEdge = (index,b, r)
+				if leftEdge == (a, b, c)
+					then verify p b gr
+				else 
+					if rightEdge == (a, b, c)
+						then verify p b gr
+					else False
+		else False
 
-verify (P1 op f g) index ((a,b,c):gr) =
+verify (POO op f g) index ((a,b,c):gr) =
 	if op == SEQ
 		then do 
 			let newEdge = (index, b, f)
@@ -59,10 +71,10 @@ verify (P1 op f g) index ((a,b,c):gr) =
 		else False 
 
 getCurr :: Program p -> Program p 
-getCurr (PP op a (PP op2 b prog)) =
+getCurr (POP op a (POP op2 b prog)) =
 	if op == SEQ
 		then do
 			if op2 == SEQ
-				then (P1 op a b)
-				else (P1 op a a)
-		else (P1 op b b)		
+				then (POO op a b)
+				else (POO op a a)
+		else (POO op b b)		
