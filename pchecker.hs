@@ -1,17 +1,24 @@
 type Operand = [Char] 
-type Weight = [Char]  
+type Edge = [Char]  
 type Vertice = [Char] 
-type Aresta = (Vertice, Vertice, Weight) 
+type Node = (Vertice, Vertice, Edge) 
 
 data Operator = SEQ | ND | FR 
 		deriving (Eq, Show)
 
+-- O programa prefixado pode ser do tipo:
+-- POP - Programa Operando-Programa  ex.: (c; (a U b))
+-- PPO - Programa Programa-Operando  ex.: ((a U b); c) 
+-- PPP - Programa Programa-Programa  ex.: ((a U b);(c U a) 
+-- POO - Programa Operador-Operador  ex.: (a;b)  	/-> um programa de uma operação ou a última operação de qualquer programa )
 data Program p = POP Operator Operand (Program p) | POO Operator Operand Operand | PPP Operator (Program p) (Program p) | PPO Operator (Program p) Operand 
 			deriving (Eq, Show)
 
-type Graph = [Aresta]
+-- Tipo Grafo é uma lista de Nodes, que em si é uma tupla (Vertice Origem, Vertice Destino, Aresta), onde cada objeto da tupla é uma string
+type Graph = [Node]
 
 
+-- Uma representação melhor do grafo [uso: putStrLn (drawGraph var) ]
 drawGraph :: Graph -> String
 drawGraph ((a,b,c):gr) = a ++ "--" ++ c ++ "-->" ++ b ++ "\n" ++ drawGraph gr
 drawGraph [] = ""
@@ -23,9 +30,11 @@ drawOp SEQ = ";"
 drawOp ND = "U"
 drawOp FR = "*"
 
+-- Uma representação melhor do programa [uso: putStrLn (drawProg var) ]
 drawProg :: Program p -> String
 drawProg (POO op a b)= "(" ++ (drawOp op) ++ "(" ++ a ++ "," ++ b  ++ "))" 
 drawProg (POP op a p) = "(" ++ (drawOp op) ++ "(" ++ a ++ "," ++ (drawProg p) ++ "))" 
+
 
 
 
@@ -39,8 +48,8 @@ seqprog1 = POP SEQ "b" (POP SEQ "b" (POP SEQ "c" (POO SEQ "d" "e"))) -- (b;b;c;d
 seq_A = POP SEQ "b" (POP SEQ "b" (POP SEQ "c" (POO SEQ "d" "e"))) -- (b;b;c;d;e)
 graph_A = [("1","2","b"),("2","3","b"),("3","4","c"),("4","5","e"),("4","5","d"),("5","6","e")]
 
-check :: Program p -> [Char] -> Graph -> String
 
+check :: Program p -> [Char] -> Graph -> String
 check _ _ [] = "False" 
 check (POO op f []) node ((a,b,c):gr) = "False"
 	-- if a /= node 
@@ -53,6 +62,8 @@ check (POO op f []) node ((a,b,c):gr) = "False"
 	-- 				then True
 	-- 			else verify (POO op f "") node gr
 	-- 	else False
+
+-- ;((U(a, b), c) --> ((a U b); c)
 
 check (POO op f g) node ((a,b,c):gr) =
 	if a /= node 
@@ -80,6 +91,7 @@ check (POP op f p) index ((a,b,c):gr) =
 			else "Nao"
 	else "Nope"		
 		
+
 verify :: Program p -> [Char] -> Graph -> Bool
 verify (POP op f p) index ((a,b,c):gr) = 
 	if op == SEQ
