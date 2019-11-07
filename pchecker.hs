@@ -37,7 +37,7 @@ prog2 = POP SEQ "a" (POP SEQ "a" (POP ND "b" (POO FR "d" "a"))) -- a;(a;(b U (d;
 seqprog1 = POP SEQ "b" (POP SEQ "b" (POP SEQ "c" (POO SEQ "d" "e"))) -- (b;b;c;d;e)
 
 seq_A = POP SEQ "b" (POP SEQ "b" (POP SEQ "c" (POO SEQ "d" "e"))) -- (b;b;c;d;e)
-graph_A = [("1","2","b"),("2","3","b"),("3","4","c"),("4","5","e")]
+graph_A = [("1","2","b"),("2","3","b"),("3","4","c"),("4","5","e"),("4","5","d"),("5","6","e")]
 
 check :: Program p -> [Char] -> Graph -> String
 
@@ -55,11 +55,11 @@ check (POO op f []) node ((a,b,c):gr) = "False"
 	-- 	else False
 
 check (POO op f g) node ((a,b,c):gr) =
-	-- if a /= node 
-	-- 	then check (POO op f g) node gr
-	-- else do
+	if a /= node 
+	 	then check (POO op f g) node gr
+	else do
 		if g == "END_OF_PROGRAM"
-			then "False"
+			then "True - No final: " ++ drawGraph [(a,b,c)]
 		else 
 			if op == SEQ 
 				then do
@@ -68,9 +68,18 @@ check (POO op f g) node ((a,b,c):gr) =
 						then do
 							let end = "END_OF_PROGRAM"
 							check (POO op g end) b gr
-					else "False"
-			else "False"
+					else check (POO op f g) node gr
+			else "False3"
 
+check (POP op f p) index ((a,b,c):gr) =
+	if op == SEQ
+		then do 
+			let newEdge = (index, b, f)
+			if newEdge == (a, b, c)
+				then check p b gr 
+			else "Nao"
+	else "Nope"		
+		
 verify :: Program p -> [Char] -> Graph -> Bool
 verify (POP op f p) index ((a,b,c):gr) = 
 	if op == SEQ
