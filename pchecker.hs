@@ -6,7 +6,7 @@ type Aresta = (Vertice, Vertice, Weight)
 data Operator = SEQ | ND | FR 
 		deriving (Eq, Show)
 
-data Program p = POP Operator Operand (Program p) | POO Operator Operand Operand | PPP Operator (Program p) (Program p) | PPO Operator (Program p) Operand
+data Program p = POP Operator Operand (Program p) | POO Operator Operand Operand | PPP Operator (Program p) (Program p) | PPO Operator (Program p) Operand 
 			deriving (Eq, Show)
 
 type Graph = [Aresta]
@@ -39,6 +39,38 @@ seqprog1 = POP SEQ "b" (POP SEQ "b" (POP SEQ "c" (POO SEQ "d" "e"))) -- (b;b;c;d
 seq_A = POP SEQ "b" (POP SEQ "b" (POP SEQ "c" (POO SEQ "d" "e"))) -- (b;b;c;d;e)
 graph_A = [("1","2","b"),("2","3","b"),("3","4","c"),("4","5","e")]
 
+check :: Program p -> [Char] -> Graph -> String
+
+check _ _ [] = "False" 
+check (POO op f []) node ((a,b,c):gr) = "False"
+	-- if a /= node 
+	-- 	then verify (POO op f "") node gr
+	-- else do
+	-- 	if op == SEQ 
+	-- 		then do
+	-- 			let newEdge = (node, b, f)
+	-- 			if newEdge == (a, b, c)
+	-- 				then True
+	-- 			else verify (POO op f "") node gr
+	-- 	else False
+
+check (POO op f g) node ((a,b,c):gr) =
+	-- if a /= node 
+	-- 	then check (POO op f g) node gr
+	-- else do
+		if g == "END_OF_PROGRAM"
+			then "False"
+		else 
+			if op == SEQ 
+				then do
+					let newEdge = (node, b, f)
+					if newEdge == (a, b, c)
+						then do
+							let end = "END_OF_PROGRAM"
+							check (POO op g end) b gr
+					else "False"
+			else "False"
+
 verify :: Program p -> [Char] -> Graph -> Bool
 verify (POP op f p) index ((a,b,c):gr) = 
 	if op == SEQ
@@ -51,8 +83,8 @@ verify (POP op f p) index ((a,b,c):gr) =
 		if op == ND 
 			then do
 				let leftEdge = (index, b, f)
-				let (op1, r, s = p --< como ?
-				let rightEdge = (index,b, r)
+				-- let (op1, r, s = p --< como ?
+				let rightEdge = (index,b, f)
 				if leftEdge == (a, b, c)
 					then verify p b gr
 				else 
