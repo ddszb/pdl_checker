@@ -34,3 +34,9 @@ prog_E = P SEQ (O "a") (P ND (O "b") (P SEQ (O "c") (P SEQ (O "f") (O "g"))))
 -- prog_E = POP SEQ "a" (POP ND "b" (POP SEQ "c" (POO SEQ "f" "g"))) -- (a;b;c;(f U g))
 graph_E = [("1","2","b"),("1","3","b"),("1","4","a"),("2","5","e"),("4","5","b"),
 			("5","10","c"),("10","11","a"),("10","12","g")]
+
+check :: Program p -> [Char] -> Graph -> [Char]
+check (P op (O a) (O b)) node ((f, g, h):gr) =
+	if a /= node 
+		then check (P op (O a) (O b)) node gr
+	else "nope" 
