@@ -1,3 +1,5 @@
+import Data.List
+
 type Operand = [Char] 
 type Edge = [Char]  
 type Vertice = [Char] 
@@ -5,126 +7,157 @@ type Node = (Vertice, Vertice, Edge)
 
 data Operator = SEQ | ND | FR deriving (Eq, Show)
 
-data Program p = P Operator (Program p) (Program p)| O Operand | Empty
+data Program p = P Operator (Program p) (Program p)| O Operand
 
 type Graph = [Node]
 
+main = do
+	validate kprog kgraph
 
--- PROGRAM AND GRAPH INPUT BELOW
-
--- (e U (a; b; (c U d))
-lprog = P ND (O "e") (P SEQ (O "a") (P SEQ (O "b") (P ND (O "c") (O "d"))))
-lgraph = [("1","2","a"), ("2","3","b"),("3","4","c")]
-
------------------------------------------------------
+-- (a;b) U (b;c)
+kprog = P ND  (P SEQ (O "a") (O "b")) (P SEQ (O "b") (O "c"))  
+kgraph = [("1","2","a"),("1","5","c"),("1","8","a"),("2","3","f"),("5","6","c"), ("8", "9", "j")] 
 
 
--- Uma representação melhor do grafo [uso: putStrLn (drawGraph var) ]
+validate :: Program p -> Graph -> IO ()
+validate a b = putStrLn ("\n\n  Program: \n\n    " ++ showProg a ++
+		 "\n\n  Graph:\n" ++ showGraph b ++ "\n\n  Evaluation: \n\n  " 
+		 ++ check a (head b) b b ++ "\n\n")
+
+
+check :: Program p -> Node -> Graph -> Graph -> [Char]
+check (P op (O f) p ) node [] [] = "\nFalse:  expected " ++ (getIndex node) ++ "--" ++ f ++ "-->x but the graph is over!\n" 
+check (P op p (O f)) node [] [] = "False."
+
+check (P op x y ) (a,b,c) ograph [] = 
+	do 
+	if 	c /= "0"
+		then do
+			let newGraph =  removeMatch (a,b,c ) ograph
+			if newGraph == [] 
+				then "False"
+			else check (P op x y ) (a, "x", "0") newGraph newGraph
+	else do
+	let previous = getFromMatch (b,a,c) ograph
+	let newGraph = removeMatch (b,a,c) ograph
+	let prevCheck = check (P op ( O previous) (O "END_OF_PROGRAM")) (head newGraph) newGraph newGraph
+	if lookFor "False" prevCheck == Nothing
+		then check (P op x y) ([last prevCheck], "x", "0") newGraph newGraph
+	else "False"
+
+check (P op (O f) (O g)) node ograph ((a,b,c):gr) =
+	if op == SEQ 
+		then do
+			let index = getIndex node
+			let newEdge = (index,b,f)
+			if newEdge == (a,b,c)
+				then do
+					if g == "END_OF_PROGRAM"
+						then "True. Final node was " ++ b
+					else do
+						let end = "END_OF_PROGRAM"
+						let newNode = (b,a,"0")
+						check (P op (O g) (O end)) newNode ograph ograph
+			else check (P op (O f) (O g)) node ograph gr
+	else do
+		if op == ND
+			then do 
+				let index = getIndex node
+				let leftEdge = (index, b, f)
+				if leftEdge == (a,b,c) -- If it goes through on the left side, no need to check right
+					then "True. Final node was " ++ b 
+				else do -- If it doesn't go through left, check again through the graph.
+					let restOfLeft = check (P op (O f) (O g)) node ograph gr
+					if lookFor "False" restOfLeft == Nothing -- If the rest goes through, than it's true
+						then "True. Final node was " ++ ([last restOfLeft])
+					else do	-- If left failed, try right			
+						if g == "END_OF_PROGRAM"
+							then "False."
+						else do 
+							let end = "END_OF_PROGRAM"
+							check (P op (O g) (O end)) node ograph ograph
+		else "* nao implementado"
+
+check (P op (O f) p ) node ograph ((a,b,c):gr) =
+	if op == SEQ
+		then do 
+			let index = getIndex node
+			let newEdge = (index,b,f)
+			if newEdge == (a,b,c)
+				then do
+					let newNode = (b, a, "0")
+				 	check p newNode ograph ograph
+			else check (P op (O f) p) node ograph gr
+	else do
+		if op == ND
+			then do 
+				let index = getIndex node
+				let newEdge = (index, b, f)
+				if newEdge == (a,b,c)
+					then "True. Final node was " ++ b
+				else do 
+					let restOfLeft = check (P op (O f) p) node ograph gr
+					if lookFor "False" restOfLeft == Nothing
+						then "True. Final node was " ++ [last restOfLeft] 
+					else do
+						let end = "END_OF_PROGRAM"
+						check (P op p (O end)) node ograph ograph
+		else "* nao implementado"
+
+check (P op p q) node ograph ((a,b,c):gr) =
+	if op == SEQ
+		then do
+			let leftEdge = check p node ograph ((a,b,c):gr)
+			if lookFor "False" leftEdge == Nothing
+				then do
+					let end = "END_OF_PROGRAM"
+					let pos = [last leftEdge]
+					check (P op q (O end)) (pos, "0", "0")  ograph ograph
+			else "False."
+	else do
+		if op == ND
+			then do 
+				let leftEdge = check p node ograph ((a,b,c):gr)
+				if lookFor "False" leftEdge == Nothing
+					then "True. Final node was " ++ [last leftEdge]
+				else do
+					let end = "END_OF_PROGRAM"
+					check (P op q (O end)) node ograph ograph
+		else "* nao implementado"
+
+getFromMatch :: Node -> Graph -> [Char]
+getFromMatch _ [] = []
+getFromMatch (a,b,c) ((x,y,s):xs)
+					| a == x  && b == y = s
+					| otherwise = getFromMatch (a,b,c) xs
+
+removeMatch :: Node -> Graph -> Graph
+removeMatch _ [] = []
+removeMatch (a,b,c) ((x,y,s):xs)
+					| a == x && b == y = xs 
+					| otherwise = (x,y,s): removeMatch (a,b,c) xs
+                    
+
+getIndex :: Node -> [Char]
+getIndex (a, _, _ ) = a
+
+lookFor :: (Eq a) => [a] -> [a] -> Maybe Int
+lookFor search str = findIndex (isPrefixOf search) (tails str)
+
+
 showGraph :: Graph -> String
-showGraph ((a,b,c):gr) = a ++ "--" ++ c ++ "-->" ++ b ++ "\n" ++ showGraph gr
+showGraph ((a,b,c):gr) = "\n    " ++ a ++ "\t------>\t" ++ b ++ " =\t" ++ c ++  showGraph gr
 showGraph [] = ""
-
-		 -- deriving (Eq,Show)
 
 showOp :: Operator -> String
 showOp SEQ = ";"
 showOp ND = " U "
 showOp FR = "*"
 
--- Uma representação melhor do programa [uso: putStrLn (drawProg var) ]
 showProg :: Program p -> String
 showProg (O x) = x
-showProg Empty = "" 
-showProg (P op a b) = "(" ++ (showProg a) ++ (showOp op) ++ (showProg b) ++ ")" 
-
-validate :: Program p -> Graph -> IO ()
-validate a b = putStrLn ("Programa: \n\n" ++ showProg a ++ "\n\nGrafo\n" ++ showGraph b ++ "\n\nCaminho percorrido: \n" ++ check a "1" (head b) b b )
-
-
--- (a;b;c;d;e)
-kprog = P SEQ (O "a") (P SEQ (O "b") (P SEQ (O "c") (P SEQ (O "d") (O "e"))))
-kgraph = [("1","7","a"),("1","4","a"),("1","2","a"),("3","4","c"),("2","3","b"),("5","6","e"),("1","3","b"),("2","3","d"),("2","3","c"),
-			("3","4","d"),("4","5","d")]
-
-
-check :: Program p -> [Char] -> Node -> Graph -> Graph -> [Char]
-check (P op (O f) p ) index node [] [] = "\nFalse:  expected " ++ index ++ "--" ++ f ++ "-->x but the graph is over!\n" 
-check (P op (O f) p ) index node ograph [] =
-	do 
-	let newGraph =  removeFrom ograph node
-	"[R1] : [X]\n\n" ++ showGraph ([head newGraph])  ++ check (P op (O f) p ) (getIndex(head newGraph)) (head newGraph) newGraph newGraph
-
-
-check (P op (O f) (O [])) index node ((a,b,c):gr) _ = "False"
-
-check (P op (O f) (O g)) index node ograph ((a,b,c):gr) =
-	-- if a /= index || f /= c 
-	-- 	then do "[P0]" ++  check (P op (O f) (O g)) index ograph gr
-	-- else do
-		if op == SEQ
-			then do
-				let newEdge = (index, b, f)
-				if newEdge == (a,b,c)
-					then do 
-						if g == "END_OF_PROGRAM"
-							then "[P1]" ++ showGraph [(a,b,c)] ++ "True."
-						else do
-							let end = "END_OF_PROGRAM"
-							"[P2]" ++ showGraph [(a,b,c)] ++ check (P op (O g) (O end)) b newEdge ograph ograph
-				else "[P3]" ++  check (P op (O f) (O g)) index node ograph gr
-		else do
-			if op == ND -- ("3","4","c")]
-				then do
-					if g == "END_OF_PROGRAM"
-						then do
-							let newEdge = (index, b, f)
-							if newEdge == (a,b,c)
-								then "[P4]" ++ showGraph [(a,b,c)] ++ "True2"
-							else "[P5]" ++ check (P op (O f) (O g)) index node ograph gr
-					else do 
-						let newEdge = (index, b, f)
-						if newEdge == (a, b, c)
-							then "[P6]" ++ showGraph [(a,b,c)] ++ "True3"
-						else do
-							-- "[P7]" ++ check (P op (O f) (O g)) index node ograph gr
-							let end = "END_OF_PROGRAM"
-							"[P8]" ++ check (P op (O g) (O end)) index node ograph ograph 
-			else "WIP"
-
-check (P op (O f) p) index node ograph ((a, b, c):gr) =
-	-- if a /= index || f /= c
-	-- 	then "[PF1]" ++ check (P op (O f) p) index ograph gr
-	-- else do
-		if op == SEQ
-			then do
-				let newEdge = (index, b, f)
-				if newEdge == (a, b, c)
-					then "[P9]" ++ showGraph [(a,b,c)] ++ check p b newEdge ograph ograph
-				else "[P10]" ++ check (P op (O f) p) index node ograph gr
-		else do
-			if op == ND
-				then do
-					let newEdge = (index, b, f)
-					if newEdge == (a, b, c)
-						then "[P11]" ++  showGraph [(a,b,c)] ++ "True. No need to check " ++ showProg p
-					else do "[P12]" ++ check p index node ograph ograph
-			else "Nope"
-
-
-getIndex :: Node -> [Char]
-getIndex (a, _, _ ) = a
-
-moveToEnd :: Node -> Graph -> Graph
-moveToEnd node graph =
-	do
-		let x = removeFrom graph node
-		addTo x node
-
-removeFrom ::  Graph -> Node -> Graph
-removeFrom [] _ = []
-removeFrom (y:ys) x | x == y    = removeFrom ys x
-                    | otherwise = y : removeFrom ys x
-
-addTo :: Graph -> Node -> Graph
-addTo [] a = [a]
-addTo (x:xs)  a  = x : addTo xs a
+showProg (P op a b) = 
+	if op /= FR 
+		then "(" ++ (showProg a) ++ (showOp op) ++ (showProg b) ++ ")" 
+	else do
+		"(" ++ (showProg a) ++ ";" ++ showProg b ++ ")*"
